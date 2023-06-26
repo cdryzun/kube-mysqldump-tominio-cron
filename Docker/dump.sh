@@ -6,6 +6,8 @@ DB_NAME=${DB_NAME:-${MYSQL_ENV_DB_NAME}}
 DB_HOST=${DB_HOST:-${MYSQL_ENV_DB_HOST}}
 ALL_DATABASES=${ALL_DATABASES}
 IGNORE_DATABASE=${IGNORE_DATABASE}
+NAME_SPACE=${NAME_SPACE:-${MYSQL_ENV_NAME_SPACE}}
+FILE_DATA=$(date +%Y%m%d%H%M%S)
 
 
 if [[ ${DB_USER} == "" ]]; then
@@ -36,3 +38,12 @@ for db in $databases; do
     fi
 done
 fi
+
+mc config host add pg "$MINIO_SERVER" "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY" --api "$MINIO_API_VERSION" > /dev/null
+
+# Archive the backup folder and upload it to Minio for retention of 7 days.
+tar -zcvf mysqldump-${FILE_DATA}.tar.gz mysqldump
+mc mb pg/${MINIO_BUCKET}
+mc cp mysqldump-${FILE_DATA}.tar.gz pg/${MINIO_BUCKET}
+mc rm --recursive --force --older-than 7d pg/${MINIO_BUCKET}
+rm -rf *.tar.gz
