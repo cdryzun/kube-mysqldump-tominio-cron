@@ -1,0 +1,82 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  # The name of your deployment
+  name: minio-deployment
+spec:
+  # Run a single instance of MinIO
+  replicas: 1
+  selector:
+    matchLabels:
+      app: minio-server
+  template:
+    metadata:
+      labels:
+        # The label for the pod
+        app: minio-server
+    spec:
+      containers:
+      - name: minio
+        # Pull the latest MinIO Docker image
+        image: minio/minio
+        args:
+        - server
+        - /data
+        env:
+        - name: MINIO_ACCESS_KEY
+          value: "minio"
+        - name: MINIO_SECRET_KEY
+          value: "minio123"
+        ports:
+        - containerPort: 9000
+        volumeMounts:
+        - name: storage
+          mountPath: "/data"
+        args:
+          - server 
+          - /data
+          - --console-address 
+          - ":9001"
+      volumes:
+      - name: storage
+        # This volume is based on a PersistentVolumeClaim
+        persistentVolumeClaim:
+          # The PersistentVolumeClaim's name
+          claimName: minio-pvc
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: minio-pvc
+spec:
+  storageClassName: local-path
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio-service
+spec:
+  type: ClusterIP
+  ports:
+    - port: 9000
+      protocol: TCP
+  selector:
+    app: minio-server
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio-service-ui
+spec:
+  type: NodePort
+  ports:
+    - port: 9001
+      protocol: TCP
+      targetPort: 9001
+  selector:
+    app: minio-server
