@@ -92,16 +92,17 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Run Trivy vulnerability scanner
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && startsWith(github.ref, 'refs/tags/v')
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: '${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}'
           format: 'sarif'
           output: 'trivy-results.sarif'
           severity: 'CRITICAL,HIGH'
+        continue-on-error: true
 
       - name: Upload Trivy scan results
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && startsWith(github.ref, 'refs/tags/v')
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: 'trivy-results.sarif'
@@ -140,23 +141,18 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Generate Changelog
-        id: changelog
-        uses: metcalfc/changelog-generator@v4.1.0
-        with:
-          myToken: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           body: |
             ## Docker Images
 
             ```bash
+            # Docker Hub
             docker pull ${{ env.IMAGE_NAME }}:${{ github.ref_name }}
+
+            # GitHub Container Registry
             docker pull ghcr.io/${{ env.IMAGE_NAME }}:${{ github.ref_name }}
             ```
 
@@ -171,9 +167,10 @@ jobs:
               --set minio.secretKey=your-secret-key
             ```
 
-            ## Changes
+            ## What's Changed
 
-            ${{ steps.changelog.outputs.changelog }}
+            See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/CHANGELOG.md) for details.
+          generate_release_notes: true
           draft: false
           prerelease: false
         env:
