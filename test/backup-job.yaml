@@ -1,86 +1,138 @@
-apiVersion: batch/v1beta1
+apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: mysqldump
+  labels:
+    app: mysqldump
+    app.kubernetes.io/name: mysqldump
+    app.kubernetes.io/component: backup
 spec:
-  schedule: 0 4 * * *
+  schedule: "0 4 * * *"
+  timeZone: "Asia/Shanghai"
   failedJobsHistoryLimit: 1
   successfulJobsHistoryLimit: 3
+  concurrencyPolicy: Forbid
   suspend: false
   jobTemplate:
     spec:
+      backoffLimit: 3
       template:
+        metadata:
+          labels:
+            app: mysqldump
         spec:
           containers:
           - name: mysqldump
-            image: cdryzun/kube-mysqldump-tominio-cron:v0.1.0
+            image: cdryzun/kube-mysqldump-tominio-cron:latest
+            imagePullPolicy: Always
             env:
             # Injecting NAME_SPACE using Downward API
-              - name: MYSQL_ENV_NAME_SPACE
-                valueFrom:
-                  fieldRef:
-                    fieldPath: metadata.namespace
-              - name: ALL_DATABASES
-                valueFrom:
-                  configMapKeyRef:
-                    name: mysqldump
-                    key: all_databases
-              - name: DB_HOST
-                valueFrom:
-                  configMapKeyRef:
-                    name: mysqldump
-                    key: dbhost
-              - name: DB_USER
-                value: root
-              - name: DB_PASS
-                valueFrom:
-                  secretKeyRef:
-                    name: mysql-secret
-                    key: password
-              - name: MINIO_SERVER
-                valueFrom:
-                  secretKeyRef:
-                    name: miniocreds
-                    key: MINIO_SERVER
-              - name: MINIO_ACCESS_KEY
-                valueFrom:
-                  secretKeyRef:
-                    name: miniocreds
-                    key: MINIO_ACCESS_KEY
-              - name: MINIO_SECRET_KEY
-                valueFrom:
-                  secretKeyRef:
-                    name: miniocreds
-                    key: MINIO_SECRET_KEY
-              - name: MINIO_BUCKET
-                valueFrom:
-                  secretKeyRef:
-                    name: miniocreds
-                    key: MINIO_BUCKET
-            imagePullPolicy: Always
+            - name: MYSQL_ENV_NAME_SPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: ALL_DATABASES
+              valueFrom:
+                configMapKeyRef:
+                  name: mysqldump-config
+                  key: all_databases
+            - name: DB_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: mysqldump-config
+                  key: db_host
+            - name: DB_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: mysqldump-config
+                  key: db_port
+                  optional: true
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-secret
+                  key: username
+            - name: DB_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-secret
+                  key: password
+            - name: BACKUP_RETENTION_DAYS
+              valueFrom:
+                configMapKeyRef:
+                  name: mysqldump-config
+                  key: backup_retention_days
+                  optional: true
+            - name: MINIO_SERVER
+              valueFrom:
+                secretKeyRef:
+                  name: minio-secret
+                  key: server
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio-secret
+                  key: access_key
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio-secret
+                  key: secret_key
+            - name: MINIO_BUCKET
+              valueFrom:
+                secretKeyRef:
+                  name: minio-secret
+                  key: bucket
+            resources:
+              requests:
+                memory: "128Mi"
+                cpu: "100m"
+              limits:
+                memory: "512Mi"
+                cpu: "500m"
             volumeMounts:
-              - mountPath: /mysqldump
-                name: mysqldump
+            - mountPath: /mysqldump
+              name: mysqldump
           volumes:
-            - name: mysqldump
-              emptyDir: {}
+          - name: mysqldump
+            emptyDir:
+              sizeLimit: 5Gi
           restartPolicy: OnFailure
+          securityContext:
+            runAsNonRoot: false
 ---
 apiVersion: v1
-data:
-  dbhost: "mysql-server"
-  all_databases: "true"
 kind: ConfigMap
 metadata:
-  name: mysqldump
+  name: mysqldump-config
+  labels:
+    app: mysqldump
+data:
+  db_host: "mysql-server"
+  db_port: "3306"
+  all_databases: "true"
+  backup_retention_days: "7"
 ---
 apiVersion: v1
 kind: Secret
 metadata:
-  name: miniocreds
+  name: mysql-secret
+  labels:
+    app: mysqldump
 type: Opaque
 stringData:
-  MINIO_SERVER: http://minio-service:9000
-  MINIO_ACCESS_KEY: minio
-  MINIO_SECRET_KEY: minio123
-  MINIO_BUCKET: "mysql-backups/example-dev"
+  username: root
+  password: your-mysql-password
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: minio-secret
+  labels:
+    app: mysqldump
+type: Opaque
+stringData:
+  server: http://minio-service:9000
+  access_key: minio
+  secret_key: minio123
+  bucket: mysql-backups/example-dev

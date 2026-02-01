@@ -1,0 +1,20 @@
+apiVersion: v2
+name: kube-mysqldump-tominio-cron
+description: A Helm chart for MySQL backup to MinIO in Kubernetes
+type: application
+version: 0.2.0
+appVersion: "0.2.0"
+keywords:
+  - mysql
+  - backup
+  - minio
+  - s3
+  - kubernetes
+  - cronjob
+home: https://github.com/cdryzun/kube-mysqldump-tominio-cron
+sources:
+  - https://github.com/cdryzun/kube-mysqldump-tominio-cron
+maintainers:
+  - name: cdryzun
+    url: https://github.com/cdryzun
+icon: https://raw.githubusercontent.com/cdryzun/kube-mysqldump-tominio-cron/master/images/icon.png

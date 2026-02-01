@@ -1,0 +1,136 @@
+# Default values for kube-mysqldump-tominio-cron
+# This is a YAML-formatted file.
+
+# Image configuration
+image:
+  repository: cdryzun/kube-mysqldump-tominio-cron
+  tag: "latest"
+  pullPolicy: Always
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+# CronJob schedule configuration
+schedule:
+  # Cron expression for backup schedule (default: daily at 4:00 AM)
+  cron: "0 4 * * *"
+  # Timezone for the schedule (requires Kubernetes 1.27+)
+  timeZone: "Asia/Shanghai"
+  # Number of successful job history to retain
+  successfulJobsHistoryLimit: 3
+  # Number of failed job history to retain
+  failedJobsHistoryLimit: 1
+  # Concurrency policy: Allow, Forbid, Replace
+  concurrencyPolicy: Forbid
+  # Suspend the cronjob
+  suspend: false
+  # Number of retries before marking job as failed
+  backoffLimit: 3
+
+# MySQL configuration
+mysql:
+  # MySQL host address
+  host: "mysql-server"
+  # MySQL port
+  port: 3306
+  # MySQL username
+  user: "root"
+  # MySQL password (will be stored in Secret)
+  password: ""
+  # Specific database name (leave empty if backing up all databases)
+  database: ""
+  # Backup all databases
+  allDatabases: true
+  # Database to ignore during backup
+  ignoreDatabase: ""
+  # Use existing secret for MySQL credentials
+  existingSecret: ""
+  # Key in existing secret for username
+  existingSecretUsernameKey: "username"
+  # Key in existing secret for password
+  existingSecretPasswordKey: "password"
+
+# MinIO configuration
+minio:
+  # MinIO server URL
+  server: "http://minio:9000"
+  # MinIO access key
+  accessKey: ""
+  # MinIO secret key
+  secretKey: ""
+  # MinIO bucket name/path
+  bucket: "mysql-backups"
+  # MinIO API version
+  apiVersion: "S3v4"
+  # Use existing secret for MinIO credentials
+  existingSecret: ""
+  # Keys in existing secret
+  existingSecretServerKey: "server"
+  existingSecretAccessKeyKey: "access_key"
+  existingSecretSecretKeyKey: "secret_key"
+  existingSecretBucketKey: "bucket"
+
+# Backup configuration
+backup:
+  # Number of days to retain backups
+  retentionDays: 7
+
+# Resource limits and requests
+resources:
+  requests:
+    memory: "128Mi"
+    cpu: "100m"
+  limits:
+    memory: "512Mi"
+    cpu: "500m"
+
+# Volume configuration for temporary backup storage
+volume:
+  # Size limit for emptyDir volume
+  sizeLimit: "5Gi"
+
+# Pod security context
+podSecurityContext: {}
+  # fsGroup: 2000
+
+# Container security context
+securityContext: {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+# Node selector
+nodeSelector: {}
+
+# Tolerations
+tolerations: []
+
+# Affinity
+affinity: {}
+
+# Additional environment variables
+extraEnv: []
+  # - name: TZ
+  #   value: "Asia/Shanghai"
+
+# Additional labels
+labels: {}
+
+# Additional annotations
+annotations: {}
+
+# Pod annotations
+podAnnotations: {}
+
+# Service account
+serviceAccount:
+  # Create service account
+  create: false
+  # Service account name
+  name: ""
+  # Annotations for service account
+  annotations: {}

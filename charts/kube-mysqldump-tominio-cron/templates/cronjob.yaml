@@ -1,0 +1,129 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "kube-mysqldump-tominio-cron.fullname" . }}
+  labels:
+    {{- include "kube-mysqldump-tominio-cron.labels" . | nindent 4 }}
+  {{- with .Values.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  schedule: {{ .Values.schedule.cron | quote }}
+  {{- if .Values.schedule.timeZone }}
+  timeZone: {{ .Values.schedule.timeZone | quote }}
+  {{- end }}
+  failedJobsHistoryLimit: {{ .Values.schedule.failedJobsHistoryLimit }}
+  successfulJobsHistoryLimit: {{ .Values.schedule.successfulJobsHistoryLimit }}
+  concurrencyPolicy: {{ .Values.schedule.concurrencyPolicy }}
+  suspend: {{ .Values.schedule.suspend }}
+  jobTemplate:
+    spec:
+      backoffLimit: {{ .Values.schedule.backoffLimit }}
+      template:
+        metadata:
+          labels:
+            {{- include "kube-mysqldump-tominio-cron.selectorLabels" . | nindent 12 }}
+          {{- with .Values.podAnnotations }}
+          annotations:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+        spec:
+          {{- with .Values.imagePullSecrets }}
+          imagePullSecrets:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- if .Values.serviceAccount.create }}
+          serviceAccountName: {{ include "kube-mysqldump-tominio-cron.serviceAccountName" . }}
+          {{- end }}
+          {{- with .Values.podSecurityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          containers:
+          - name: mysqldump
+            image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+            imagePullPolicy: {{ .Values.image.pullPolicy }}
+            {{- with .Values.securityContext }}
+            securityContext:
+              {{- toYaml . | nindent 14 }}
+            {{- end }}
+            env:
+            - name: MYSQL_ENV_NAME_SPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: DB_HOST
+              value: {{ .Values.mysql.host | quote }}
+            - name: DB_PORT
+              value: {{ .Values.mysql.port | quote }}
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "kube-mysqldump-tominio-cron.mysqlSecretName" . }}
+                  key: {{ .Values.mysql.existingSecretUsernameKey }}
+            - name: DB_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "kube-mysqldump-tominio-cron.mysqlSecretName" . }}
+                  key: {{ .Values.mysql.existingSecretPasswordKey }}
+            {{- if .Values.mysql.allDatabases }}
+            - name: ALL_DATABASES
+              value: "true"
+            {{- else if .Values.mysql.database }}
+            - name: DB_NAME
+              value: {{ .Values.mysql.database | quote }}
+            {{- end }}
+            {{- if .Values.mysql.ignoreDatabase }}
+            - name: IGNORE_DATABASE
+              value: {{ .Values.mysql.ignoreDatabase | quote }}
+            {{- end }}
+            - name: MINIO_SERVER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "kube-mysqldump-tominio-cron.minioSecretName" . }}
+                  key: {{ .Values.minio.existingSecretServerKey }}
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "kube-mysqldump-tominio-cron.minioSecretName" . }}
+                  key: {{ .Values.minio.existingSecretAccessKeyKey }}
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "kube-mysqldump-tominio-cron.minioSecretName" . }}
+                  key: {{ .Values.minio.existingSecretSecretKeyKey }}
+            - name: MINIO_BUCKET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "kube-mysqldump-tominio-cron.minioSecretName" . }}
+                  key: {{ .Values.minio.existingSecretBucketKey }}
+            - name: MINIO_API_VERSION
+              value: {{ .Values.minio.apiVersion | quote }}
+            - name: BACKUP_RETENTION_DAYS
+              value: {{ .Values.backup.retentionDays | quote }}
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+            resources:
+              {{- toYaml .Values.resources | nindent 14 }}
+            volumeMounts:
+            - mountPath: /mysqldump
+              name: mysqldump
+          volumes:
+          - name: mysqldump
+            emptyDir:
+              sizeLimit: {{ .Values.volume.sizeLimit }}
+          restartPolicy: OnFailure
+          {{- with .Values.nodeSelector }}
+          nodeSelector:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.affinity }}
+          affinity:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.tolerations }}
+          tolerations:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
