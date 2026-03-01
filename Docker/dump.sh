@@ -81,15 +81,22 @@ backup_single_database() {
         --host="${DB_HOST}" \
         --port="${DB_PORT}" \
         --single-transaction \
+        --skip-lock-tables \
         --routines \
         --triggers \
         --events \
-        "$@" \
-        "${db_name}" > "${BACKUP_DIR}/${db_name}.sql" 2>/dev/null; then
+        --no-tablespaces \
+        --databases \
+        "${db_name}" > "${BACKUP_DIR}/${db_name}.sql" 2>"${BACKUP_DIR}/${db_name}.err"; then
         log_info "Successfully backed up: ${db_name}"
+        rm -f "${BACKUP_DIR}/${db_name}.err"
         return 0
     else
         log_error "Failed to backup: ${db_name}"
+        if [[ -f "${BACKUP_DIR}/${db_name}.err" ]]; then
+            log_error "Error output: $(cat "${BACKUP_DIR}/${db_name}.err")"
+            rm -f "${BACKUP_DIR}/${db_name}.err"
+        fi
         return 1
     fi
 }
@@ -118,12 +125,12 @@ backup_all_databases() {
            [[ "${db}" == _* ]] || \
            [[ "${db}" == "${IGNORE_DATABASE}" ]]; then
             log_info "Skipping system/ignored database: ${db}"
-            ((skip_count++))
+            skip_count=$((skip_count + 1))
             continue
         fi
 
         if backup_single_database "${db}"; then
-            ((backup_count++))
+            backup_count=$((backup_count + 1))
         fi
     done
 
@@ -136,7 +143,7 @@ backup_all_databases() {
 configure_minio() {
     log_info "Configuring MinIO client..."
 
-    if mc config host add backup \
+    if mc alias set backup \
         "${MINIO_SERVER}" \
         "${MINIO_ACCESS_KEY}" \
         "${MINIO_SECRET_KEY}" \
