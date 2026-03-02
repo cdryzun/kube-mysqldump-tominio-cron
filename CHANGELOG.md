@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-03-02
+
+### Fixed
+
+- Fix `((skip_count++))` arithmetic error causing premature exit with `set -e`
+- Add `--skip-lock-tables` and `--no-tablespaces` options for MariaDB/MySQL 8.0 compatibility
+- Add `--databases` option to mysqldump for proper database selection
+- Update `mc` command from `config host add` to `alias set` for newer mc client versions
+- Add error output capture for better debugging
+
+### Changed
+
+- mysqldump backup files now include `CREATE DATABASE` and `USE` statements
+- Improved error messages with detailed output
+
 ## [0.2.0] - 2026-02-01
 
 ### Added
