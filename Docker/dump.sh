@@ -87,6 +87,7 @@ backup_single_database() {
         --events \
         --no-tablespaces \
         --databases \
+        "$@" \
         "${db_name}" > "${BACKUP_DIR}/${db_name}.sql" 2>"${BACKUP_DIR}/${db_name}.err"; then
         log_info "Successfully backed up: ${db_name}"
         rm -f "${BACKUP_DIR}/${db_name}.err"
